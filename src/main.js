@@ -48,10 +48,11 @@ function app() {
     const FOREST = "#228b22";
     const SHAMROCK = "#009e60";
     const BRIGHT_GREEN = "#66ff00";
+    const BRIGHT_BLUE = "#6600ff";
 
     //
     const VALID_HI = BRIGHT_GREEN;
-    const VALID_LO = FOREST;
+    const VALID_LO = BRIGHT_BLUE;
     function isValid(color) {
         return color === VALID_HI || color === VALID_LO;
     }
@@ -60,7 +61,6 @@ function app() {
         if (Math.random() > .5) return VALID_HI;
         return VALID_LO;
     }
-    
 
     const TERMINAL_LENGTH = 20;
     const TERM_DOT_SIZE = 10;
