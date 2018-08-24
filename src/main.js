@@ -26,10 +26,10 @@ function app() {
     
     const MUX_FACE_WIDTH = 50;
     const LATCH_GUTTER = 50;
-    const LATCH_WIDTH = 130 + LATCH_GUTTER;
-    const LATCH_HEIGHT = LATCH_WIDTH * 1.5;
+    const LATCH_WIDTH = 200 + LATCH_GUTTER;
+    const LATCH_HEIGHT = 180 * 1.5;
     const LATCH_TOP = 200;
-    const LATCH_LEFT = 600;
+    const LATCH_LEFT = 400;
     
     const WIRE_WIDTH = BORDER;
 
@@ -57,26 +57,10 @@ function app() {
         return color === VALID_HI || color === VALID_LO;
     }
 
-    function randomValidColor() {
-        if (Math.random() > .5) return VALID_HI;
-        return VALID_LO;
-    }
+    const SEGMENT_WIDTH = 5; // $ file img/sig-invalid.jpg
 
     const TERMINAL_LENGTH = 20;
     const TERM_DOT_SIZE = 10;
-
-    
-
-    // utility functions.
-    function randomInvalidSignalColor() {
-        let colors = ["#444", "#555", "#666", "#565656", "#454545", "#474747", "#585858", "#454545"];
-        let idx = Math.floor(Math.random() * colors.length);
-        return colors[idx];
-    }
-
-    
-    
-    
     
     // ---------------------------------------------------------------------------------------------
     class Canvas {
@@ -85,17 +69,16 @@ function app() {
             this.h = h;
             this.w = w;
             this.ctx = SVG('drawing').size(w, h);
-            dbg = this.ctx;            
             this.ctx.rect(this.w, this.h).attr({ fill: '#fff' });        
 
             this.latch = new Latch(LATCH_LEFT, LATCH_TOP);
             
             this.buttonLo = new Button(VALID_LO, 
-                                       _=> { this.latch.validOnD1(VALID_LO); },
+                                       _=> { this.latch.validOnD1(SIGNAL.VALID_LO); },
                                        _=> { this.latch.invalidOnD1(); }                
             );
             this.buttonHi = new Button(VALID_HI,
-                                       c=> { this.latch.validOnD1(VALID_HI); },
+                                       c=> { this.latch.validOnD1(SIGNAL.VALID_HI); },
                                        _=> { this.latch.invalidOnD1(); }                
             );
             
@@ -130,27 +113,27 @@ function app() {
     class Button {
         constructor(signalType, mouseDownCallback, mouseUpCallback) {
             this.signalType = signalType;
-            this.btn_width = 58;
-            this.btn_height = 63;
+            this.btn_width = 58 * .75;
+            this.btn_height = 63 * .75;
             this.mouseDownCallback = mouseDownCallback;
             this.mouseUpCallback = mouseUpCallback;
             
-            this.left = LATCH_LEFT - TERMINAL_LENGTH - this.btn_width - 2*TERM_DOT_SIZE;
-            this.top = LATCH_TOP + LATCH_HEIGHT/3 + (LATCH_HEIGHT/3 - this.btn_height)/2;
+            this.left = LATCH_LEFT - TERMINAL_LENGTH - this.btn_width - TERM_DOT_SIZE;
+            this.top = LATCH_TOP + LATCH_HEIGHT/3 - TERM_DOT_SIZE/4;
         }
 
         draw(ctx) { 
             var imgFile = "img/btn-hand-hi.jpg";
             if (this.signalType == VALID_LO) imgFile = "img/btn-hand-lo.jpg";
 
-            let offset = this.signalType == VALID_LO ? this.btn_width : 0;
+            let offset = this.signalType == VALID_LO ? this.btn_height : 0;
             
             this.element = ctx            
                 .image(imgFile, this.btn_width, this.btn_height)
-                .move(this.left - offset, this.top);
+                .move(this.left, this.top + offset);
 
             let box = ctx.rect(this.btn_width, this.btn_height)
-                .move(this.left - offset, this.top)                
+                .move(this.left, this.top + offset)                
                 .attr({ fill: "#000",
                         'fill-opacity': .1 })
                 .stroke({ width: BORDER,
@@ -160,7 +143,7 @@ function app() {
                 box.attr({'fill-opacity' : 0 });
                 this.element.fire('mouseover');
             });
-
+            
             box.mouseout(_=> {
                 box.attr({'fill-opacity' : .1 });
                 this.element.fire('mouseout');
@@ -170,6 +153,7 @@ function app() {
                 box.attr({'fill-opacity' : .2 });
                 this.element.fire('mousedown', this.signalType);
             });
+            
             box.mouseup(_=> {
                 box.attr({'fill-opacity' : 0 });
                 this.element.fire('mouseup');
@@ -211,12 +195,6 @@ function app() {
                     fill: BORDER_COLOR
                 });
         }
-        
-        centerOfConnector(name) {
-            if (["Q", "D0", "D1", "CLK"].indexOf(name) == -1) {
-                throw new Error("connector not found: " + name);
-            }
-        }
     }
 
     function randomColor() {
@@ -224,6 +202,69 @@ function app() {
                        Math.round(9 * Math.random()),
                        Math.round(9 * Math.random()) ].join("");
     }
+    // ---------------------------------------------------------------------------------------------
+    const SIGNAL = { INVALID: 1,
+                     VALID_HI: 2,
+                     VALID_LO: 3};
+
+    class Segment {
+        constructor(left, top, segW, segH) {
+            this.segs = {};
+            this.curState = SIGNAL.INVALID;
+            this.left = left;
+            this.top = top;
+            this.segW = segW;
+            this.segH = segH;
+        }
+
+        draw(ctx) {
+            console.log("drawing segment");
+            this.segs[SIGNAL.INVALID] = this.setupSegmentImg(ctx, SIGNAL.INVALID);
+            this.segs[SIGNAL.VALID_HI] = this.setupSegmentImg(ctx, SIGNAL.VALID_HI);
+            this.segs[SIGNAL.VALID_LO] = this.setupSegmentImg(ctx, SIGNAL.VALID_LO);
+        }
+
+        hasValidState() {
+            return this.curState !== SIGNAL.INVALID;
+        }
+        
+        setupSegmentImg(ctx, segType) {
+            let img = ( segType === SIGNAL.INVALID ? "img/sig-invalid.png" :
+                        segType === SIGNAL.VALID_HI ? "img/sig-valid-hi.png" :
+                        segType === SIGNAL.VALID_LO ? "img/sig-valid-lo.png" : "unknown seg type" );
+            return ctx
+                .image(img, 5 /*this.segW*/, 90 /*this.segH*/)
+                .move(this.left, this.top);
+        }
+
+        setState(segState) {
+            this.curState = segState;
+            if ([SIGNAL.INVALID, SIGNAL.VALID_LO, SIGNAL.VALID_HI].indexOf(segState) == -1) {
+                console.log(segState);
+                console.log(this.segs);
+                throw new Error("Got bad segment state: " + segState);
+            }
+            this.segs[SIGNAL.INVALID].opacity(0);
+            this.segs[SIGNAL.VALID_HI].opacity(0);
+            this.segs[SIGNAL.VALID_LO].opacity(0);
+            this.segs[segState].opacity(1);
+        }
+
+        randomizeOpacity() {
+            this.segs[this.curState].opacity(.40 + Math.random()*.2 );
+        }
+        
+        getState() { return this.curState; }
+        
+        show(segType) {
+            this.hideAll();
+        }
+        
+        update() {
+            
+        }
+    }
+
     
     // ---------------------------------------------------------------------------------------------    
     class PropBox {
@@ -233,46 +274,47 @@ function app() {
         constructor(left, top) {
             this.top = top;
             this.left = left;
-            this.numSegments = 30;
+            this.numSegments = LATCH_WIDTH / SEGMENT_WIDTH;
             this.segments = [];
         }
 
-        update() {
+        lastSeg() {
+            return this.segments[this.numSegments - 1];
+        }
+        
+        update() {            
             for (var i=this.numSegments-1; i>0; i--) {
-                var nbrLeftColor = this.segments[i-1].attr().fill;
-                if (isValid(nbrLeftColor)) {
-                    this.updateSegment(i, nbrLeftColor);
-                } else {                    
-                    this.updateSegment(i, randomInvalidSignalColor());
+                let curSeg = this.segments[i];
+                let leftSeg = this.segments[i-1];
+                
+                if (leftSeg.hasValidState()) {
+                    this.updateSegment(i, leftSeg.curState);
+                } else {
+                    this.updateSegment(i, SIGNAL.INVALID);
                 }
             }
 
-            for (var i=this.numSegments-1; i>0; i--) { 
-                var leftColor = this.segments[i-1].attr().fill;
-                var curColor = this.segments[i].attr().fill;
-                if (isValid(curColor) && !isValid(leftColor)) {
-                    // this is a sneaky way to implement signal 
-                    
-                    // OK. if this runs every time then TCD = TPD/2.
-                    // flip a coin to increase the TCD.
-                    if (Math.random() > .5) {
-                        this.updateSegment(i, randomInvalidSignalColor());
+            for (var i=this.numSegments-1; i>0; i--) {
+                let curSeg = this.segments[i];
+                let leftSeg = this.segments[i-1];
+                
+                if (curSeg.hasValidState() && !leftSeg.hasValidState()) {
+                    if (Math.random() > .7) {
+                        this.updateSegment(i, SIGNAL.INVALID);
                     }
                 }
-                
             }
-
         }
         
         draw(ctx) {
-            let SEGMENT_WIDTH = LATCH_WIDTH/this.numSegments;
             let SEGMENT_HEIGHT = LATCH_HEIGHT/3;
-            
-            for (var i=0; i<this.numSegments; i++) {                
-                let r = ctx.rect(SEGMENT_WIDTH, SEGMENT_HEIGHT)
-                    .move(this.left + i*SEGMENT_WIDTH, this.top)
-                    .attr({ fill: randomColor() });
-                this.segments.push(r);
+            let imgFile = "img/sig-invalid.png";
+            for (var i=0; i<this.numSegments; i++) {
+                let seg = new Segment(this.left + i*SEGMENT_WIDTH, this.top,
+                                      SEGMENT_WIDTH, SEGMENT_HEIGHT);
+                seg.draw(ctx);
+                seg.setState(SIGNAL.INVALID);
+                this.segments.push(seg);
             }
             let border = ctx.rect(LATCH_WIDTH - BORDER, SEGMENT_HEIGHT - BORDER/2)
                 .move(this.left+BORDER/2, this.top + BORDER/2)
@@ -280,11 +322,17 @@ function app() {
                         "stroke-width": BORDER,
                         "stroke": BORDER_COLOR
                       });
+            
             this.segments.push(border);
         }
 
-        updateSegment(idx, color) {            
-            this.segments[idx].attr({fill:color});
+        updateSegment(idx, segState) {
+            if (idx < 0 || idx >= this.numSegments) 
+                throw new Error ("index out of range: " + idx);
+            this.segments[idx].setState(segState);
+            if (!this.segments[idx].hasValidState()) {
+                this.segments[idx].randomizeOpacity();
+            }
         }
     }
     
@@ -303,18 +351,31 @@ function app() {
 
     class Wire {
         constructor(arr) {
+            this.curState = SIGNAL.INVALID;
             this.arr = arr;
         }
+        
+        hasValidState() {
+            return this.curState !== SIGNAL.INVALID;
+        }
 
+        setState(s) {
+            this.curState = s;
+        }
+        
         draw(ctx) {
             this.line = ctx
                 .polyline(this.arr)
                 .attr({
-                    'stroke': randomInvalidSignalColor(),
+                    'stroke': "#444",
                     'fill': "none",
                     'stroke-width': WIRE_WIDTH
                 });
             //this.line.plot(this.arr);
+        }
+
+        opacity(n) {
+            this.line.opacity(n);
         }
     }
     
@@ -334,17 +395,54 @@ function app() {
             this.propBoxD0.update();
             this.propBoxD1.update();
             this.propBoxS.update();
+            this.updateFeedbackWire();
+        }
+
+        updateFeedbackWire() {
+            // since the latch is lenient, any two good signals will
+            // mean a good signal on the wire.
+            
+            let segD0 = this.propBoxD0.lastSeg();
+            let segD1 = this.propBoxD1.lastSeg();
+            let segS  = this.propBoxS.lastSeg();
+
+            var numValid = 0;
+            
+            numValid += segD0.hasValidState() ? 1 : 0;
+            numValid += segD1.hasValidState() ? 1 : 0;
+            numValid += segS.hasValidState() ? 1 : 0;
+            
+            if (numValid >= 2) {
+                this.feedbackWire.opacity(1);
+                if (segS.hasValidState()) {
+                    if (segS.curState == SIGNAL.VALID_LO) {
+                        this.feedbackWire.setState(segD0.curState);
+                    } else {
+                        this.feedbackWire.setState(segD1.curState);
+                    }
+
+                    if (this.feedbackWire.hasValidState()) {
+                        this.validOnD0(this.feedbackWire.curState);
+                    } else {
+                        this.invalidOnD0();
+                    }
+                } 
+                
+            } else {
+                this.feedbackWire.opacity(.30 + Math.random()*.4);
+            }
+            
         }
         
         clockHi() {
-            this.propBoxS.updateSegment(1, randomInvalidSignalColor() );
-            this.propBoxS.updateSegment(0, VALID_HI );
+            this.propBoxS.updateSegment(1, SIGNAL.INVALID);
+            this.propBoxS.updateSegment(0, SIGNAL.VALID_HI );
             console.log("clock high");
         }
 
         clockLo() {
-            this.propBoxS.updateSegment(1, randomInvalidSignalColor() );
-            this.propBoxS.updateSegment(0, VALID_LO );
+            this.propBoxS.updateSegment(1, SIGNAL.INVALID);
+            this.propBoxS.updateSegment(0, SIGNAL.VALID_LO);
             console.log("clock low");
         }
 
@@ -373,7 +471,7 @@ function app() {
                 [this.right() + 4*TERMINAL_LENGTH, this.top - LATCH_GUTTER],
                 [this.left    - 3*TERMINAL_LENGTH, this.top - LATCH_GUTTER],
                 [this.left    - 3*TERMINAL_LENGTH, heightD0],
-                [this.left    - TERMINAL_LENGTH - TERM_DOT_SIZE - BORDER/2, heightD0],
+                [this.left    - TERMINAL_LENGTH - TERM_DOT_SIZE, heightD0],
             ]));
             
             this.propBoxD0 = new PropBox(LATCH_LEFT + LATCH_GUTTER, LATCH_TOP + 0 * LATCH_HEIGHT/3);
@@ -382,8 +480,12 @@ function app() {
         }
 
         
-        validOnD1(c) { this.propBoxD1.updateSegment(0, c); }
-        invalidOnD1() { this.propBoxD1.updateSegment(0, randomInvalidSignalColor()); }
+        validOnD1(segType) { this.propBoxD1.updateSegment(0, segType); }
+        invalidOnD1() { this.propBoxD1.updateSegment(0, SIGNAL.INVALID); }
+
+        validOnD0(segType) { this.propBoxD0.updateSegment(0, segType); }
+        invalidOnD0() { this.propBoxD0.updateSegment(0, SIGNAL.INVALID); }
+
         
         draw(ctx) {
             var array = new SVG.PointArray(
@@ -432,15 +534,6 @@ function app() {
                 .size(24)
                 .move(this.left + 9, this.top + 5 * LATCH_HEIGHT / 6 - 14)
                 .attr({'fill':BORDER_COLOR});
-
-            this.portTextOut = ctx
-                .text("D0")
-                .size(24)
-                .move(this.right() + 7*TERMINAL_LENGTH + 5, this.top + LATCH_HEIGHT/2 - 14)
-                .attr({'fill':BORDER_COLOR});
-            
-            // this.portTextOut = ctx
-            //     .text("D0)
             
             this.propBoxD0.draw(ctx);
             this.propBoxD1.draw(ctx);
@@ -450,12 +543,11 @@ function app() {
     
     function main() {
         let canv = new Canvas(CANVAS_WIDTH, CANVAS_HEIGHT);
-        dbg=canv;
         canv.draw();
         
         function forever() {
             canv.latch.update();
-            setTimeout( _ => { forever(); }, 50);
+            setTimeout( _ => { forever(); }, 30);
         }
         forever();
 
@@ -470,9 +562,6 @@ function app() {
             setTimeout( _ => { clockHi(); }, 2000);
         }
         clockLo();
-
-
-
         
         console.log("done");
     }
